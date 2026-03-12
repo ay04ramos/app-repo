@@ -1,0 +1,106 @@
+substitutions:
+  _REGION: us-central1
+  _REPO: helloworld-repo
+  _SERVICE: notes-flask
+  _API_ID: notes-api
+  _GATEWAY_NAME: notes-gw
+  _RUNTIME_SA: notes-run-sa
+  _GATEWAY_SA: notes-gw-sa
+  _COLLECTION: notes
+  _APP_VERSION: v1
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  # 0) Unit tests
+  - name: 'python:3.11'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        pip install -r app/requirements.txt pytest
+        pytest -q
+
+  # 1) Build & push container
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - -t
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/helloworld-repo/notes-flask:latest'
+      - .
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/helloworld-repo/notes-flask:latest'
+
+  # 2) Deploy to Cloud Run (private)
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - run
+      - deploy
+      - 'notes-flask'
+      - '--image=us-central1-docker.pkg.dev/$PROJECT_ID/helloworld-repo/notes-flask:latest'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--no-allow-unauthenticated'
+      - '--service-account=notes-run-sa@$PROJECT_ID.iam.gserviceaccount.com'
+      - '--set-env-vars=PROJECT_ID=$PROJECT_ID,APP_VERSION=v1,NOTES_COLLECTION=notes'
+      - '--port=8080'
+      - '--memory=256Mi'
+      - '--cpu=1'
+
+  # 3) Get Cloud Run URL
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: get-run-url
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        URL=$(gcloud run services describe notes-flask --region=us-central1 --format='value(status.url)')
+        echo "CLOUD_RUN_URL=$URL" >> $BUILDER_OUTPUT/output
+        echo "CLOUD_RUN_AUDIENCE=$URL" >> $BUILDER_OUTPUT/output
+
+  # 4) Render OpenAPI
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        source $BUILDER_OUTPUT/output
+        sed \
+          -e "s#${BACKEND_URL}#${CLOUD_RUN_URL}#g" \
+          -e "s#${BACKEND_AUDIENCE}#${CLOUD_RUN_AUDIENCE}#g" \
+          -e "s#${GATEWAY_HOSTNAME}#notes-api.apigateway.$PROJECT_ID.cloud.goog#g" \
+          api/openapi.yaml > api/openapi.generated.yaml
+
+  # 5) Create/update API Gateway
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        gcloud api-gateway apis describe notes-api || gcloud api-gateway apis create notes-api
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - api-gateway
+      - api-configs
+      - create
+      - 'cfg-$(date +%Y%m%d-%H%M%S)'
+      - '--api=notes-api'
+      - '--openapi-spec=api/openapi.generated.yaml'
+      - '--project=$PROJECT_ID'
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        gcloud api-gateway gateways describe notes-gw --location=us-central1 \
+        && gcloud api-gateway gateways update notes-gw --api=notes-api --api-config=latest --location=us-central1 \
+        || gcloud api-gateway gateways create notes-gw --api=notes-api --api-config=latest --location=us-central1
+
+images:
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/helloworld-repo/notes-flask:latest'
