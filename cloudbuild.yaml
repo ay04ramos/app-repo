@@ -4,8 +4,8 @@ substitutions:
   _SERVICE: notes-flask
   _API_ID: notes-api
   _GATEWAY_NAME: notes-gw
-  _RUNTIME_SA: notes-run-sa
-  _GATEWAY_SA: notes-gw-sa
+  _RUNTIME_SA: 722546049889-compute
+  _GATEWAY_SA: 722546049889-compute
   _COLLECTION: notes
   _APP_VERSION: v1
 
@@ -45,7 +45,7 @@ steps:
       - '--region=us-central1'
       - '--platform=managed'
       - '--no-allow-unauthenticated'
-      - '--service-account=notes-run-sa@$PROJECT_ID.iam.gserviceaccount.com'
+      - '--service-account=722546049889-compute@developer.gserviceaccount.com
       - '--set-env-vars=PROJECT_ID=$PROJECT_ID,APP_VERSION=v1,NOTES_COLLECTION=notes'
       - '--port=8080'
       - '--memory=256Mi'
