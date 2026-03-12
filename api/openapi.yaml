@@ -1,0 +1,72 @@
+swagger: '2.0'
+info:
+  title: Notes API
+  description: API Gateway in front of Cloud Run (Flask)
+  version: 1.0.0
+schemes:
+  - https
+produces:
+  - application/json
+paths:
+  /health:
+    get:
+      operationId: health
+      responses:
+        '200':
+          description: OK
+      x-google-backend:
+        address: "${BACKEND_URL}/health"
+        protocol: h2
+        jwt_audience: "${BACKEND_AUDIENCE}"
+  /notes:
+    get:
+      operationId: listNotes
+      responses:
+        '200':
+          description: OK
+      x-google-backend:
+        address: "${BACKEND_URL}/notes"
+        protocol: h2
+        jwt_audience: "${BACKEND_AUDIENCE}"
+    post:
+      operationId: createNote
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+              title:
+                type: string
+      responses:
+        '201':
+          description: Created
+      x-google-backend:
+        address: "${BACKEND_URL}/notes"
+        protocol: h2
+        jwt_audience: "${BACKEND_AUDIENCE}"
+  /notes/{noteId}:
+    delete:
+      operationId: deleteNote
+      parameters:
+        - in: path
+          name: noteId
+          required: true
+          type: string
+      responses:
+        '204':
+          description: Deleted
+      x-google-backend:
+        address: "${BACKEND_URL}/notes/{noteId}"
+        protocol: h2
+        jwt_audience: "${BACKEND_AUDIENCE}"
+x-google-endpoints:
+  - name: ${GATEWAY_HOSTNAME}
+securityDefinitions:
+  api_key:
+    type: "apiKey"
+    name: "x-api-key"
+    in: "header"
