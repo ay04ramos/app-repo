@@ -1,0 +1,4 @@
+Flask==3.0.2
+gunicorn==21.2.0
+google-cloud-firestore==2.16.0
+google-cloud-logging==3.10.0
