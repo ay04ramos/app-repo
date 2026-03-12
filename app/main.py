@@ -3,7 +3,7 @@ from datetime import datetime
 from flask import Flask, jsonify, request
 from google.cloud import firestore
 from google.cloud import logging as gcloud_logging
-
+##def
 PROJECT_ID = os.environ.get("PROJECT_ID")
 APP_VERSION = os.environ.get("APP_VERSION", "v1")
 COLLECTION = os.environ.get("NOTES_COLLECTION", "notes")
